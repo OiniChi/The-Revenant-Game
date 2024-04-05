@@ -131,6 +131,7 @@ class Player(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
 
+        self.alive_flag = True
         self.timers = {
             ''
         }
@@ -245,6 +246,7 @@ class Player(pygame.sprite.Sprite):
         #
         # if hits:
         #     self.kill()
+        #     playing = False
         pass
     def collide_block(self, direction):
         keys = pygame.key.get_pressed()
@@ -383,54 +385,54 @@ class Enemy(pygame.sprite.Sprite):
     def movement(self):
         hits = pygame.sprite.spritecollide(self, collisions_group, False)
         random_key = random.choice(['left', 'right'])
-        for i, (key, (change_attr, speed, facing, attack_facing)) in enumerate(self.directions.items()):
-            if not hits:
-                if key == 'l_key' or key == 'r_key':
-                    setattr(self, change_attr, speed)
-                    self.movement_loop -= 1 if key == 'l_key' else 1
-                    # self.x_change -= ENEMY_SPEED if key == 'l_key' else ENEMY_SPEED
-                    if self.movement_loop < self.max_traveling or self.movement_loop > -self.max_traveling:
-                        self.movement_loop = 1 if key == 'l_key' else -1
-                        self.facing = 'left' if key == 'l_key' else 'right'
-                        # print(self.facing)
-            # else:
+        # for i, (key, (change_attr, speed, facing, attack_facing)) in enumerate(self.directions.items()):
+        #     if not hits:
+        #         if key == 'l_key' or key == 'r_key':
+        #             setattr(self, change_attr, speed)
+        #             self.movement_loop -= 1 if key == 'l_key' else 1
+        #             # self.x_change -= ENEMY_SPEED if key == 'l_key' else ENEMY_SPEED
+        #             if self.movement_loop < self.max_traveling or self.movement_loop > -self.max_traveling:
+        #                 self.movement_loop = 1 if key == 'l_key' else -1
+        #                 self.facing = 'left' if key == 'l_key' else 'right'
+        #                 # print(self.facing)
+        #     # else:
 
-        # if not hits:
-        #     if self.facing == 'left':
-        #         self.x_change -= ENEMY_SPEED
-        #         self.movement_loop -= 1
-        #         if self.movement_loop <= -self.max_traveling:
-        #             self.facing = 'right'
-        #     if self.facing == 'right':
-        #         self.x_change += ENEMY_SPEED
-        #         self.movement_loop += 1
-        #         if self.movement_loop >= self.max_traveling:
-        #             self.facing = 'left'
-        # else:
-        #     if self.facing == 'left':
-        #         self.facing = 'attack_left'
-        #         self.x_change -= ENEMY_SPEED
-        #         self.movement_loop -= 1
-        #         if self.movement_loop <= -self.max_traveling:
-        #             self.facing = 'right'
-        #     if self.facing == 'right':
-        #         self.facing = 'attack_right'
-        #         self.x_change += ENEMY_SPEED
-        #         self.movement_loop += 1
-        #         if self.movement_loop >= self.max_traveling:
-        #             self.facing = 'left'
-    # def get_dialogue(self):
-    #     hits = pygame.sprite.spritecollide(player_group, interaсtive_group, False)
-    #     keys = pygame.key.get_pressed()
-    #     intro = True
-    #     if hits and keys[PLAYER_KEYS['usage_key']]:
-    #         screen.blit(self.dialogue_scr, (0,0))
-    #
-    #         while intro:
-    #             for event in pygame.event.get():  # тут мы получаем каждое отдельное событие из pygame
-    #                 if event.type == pygame.KEYDOWN and event.key == pygame.K_KP_ENTER:
-    #                     intro = False
-    #         pygame.display.update()
+        if not hits:
+            if self.facing == 'left':
+                self.x_change -= ENEMY_SPEED
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_traveling:
+                    self.facing = 'right'
+            if self.facing == 'right':
+                self.x_change += ENEMY_SPEED
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_traveling:
+                    self.facing = 'left'
+        else:
+            if self.facing == 'left':
+                self.facing = 'attack_left'
+                self.x_change -= ENEMY_SPEED
+                self.movement_loop -= 1
+                if self.movement_loop <= -self.max_traveling:
+                    self.facing = 'right'
+            if self.facing == 'right':
+                self.facing = 'attack_right'
+                self.x_change += ENEMY_SPEED
+                self.movement_loop += 1
+                if self.movement_loop >= self.max_traveling:
+                    self.facing = 'left'
+    def get_dialogue(self):
+        hits = pygame.sprite.spritecollide(player_group, interaсtive_group, False)
+        keys = pygame.key.get_pressed()
+        intro = True
+        if hits and keys[PLAYER_KEYS['usage_key']]:
+            screen.blit(self.dialogue_scr, (0,0))
+
+            while intro:
+                for event in pygame.event.get():  # тут мы получаем каждое отдельное событие из pygame
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_KP_ENTER:
+                        intro = False
+            pygame.display.update()
     def animated(self):
         hits = pygame.sprite.spritecollide(self, collisions_group, False)
         direction = self.facing

@@ -11,6 +11,7 @@ info = pygame.display.Info()
 screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN)
 clock = pygame.time.Clock()
 cam_group = CameraGroup()
+# playing = True
 # terrarian_spritesheet = Spritesheet('img/Level_textures/all_sprites.png')
 main_menu_spritesheet = pygame.image.load('img/Menu/MainScr.jpg').convert()
 
