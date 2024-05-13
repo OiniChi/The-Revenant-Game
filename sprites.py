@@ -3,6 +3,7 @@ import pygame
 from config import *
 from settings import *
 from levels import *
+from Entity import Entity
 import math
 import random
 from groups import (all_sprites, decorations_group,
@@ -22,7 +23,9 @@ class CameraGroup(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         self.display_surface = pygame.display.get_surface()
+        self.offset = pygame.math.Vector2()
 
+        # flags
         self.enemy_is_spawned = False
         # Загрузка спрайтов
         self.terrarian_spritesheet = Spritesheet('img/Level_textures/all_sprites.png')
@@ -40,8 +43,8 @@ class CameraGroup(pygame.sprite.Sprite):
         self.internal_offset = pygame.math.Vector2()
         self.internal_offset.x = self.internal_surface_size[0] // 2 - WIN_WIDTH / 2
         self.internal_offset.y = self.internal_surface_size[1] // 2 - WIN_HEIGHT / 2
-        self.camera_offsetX = 0
-        self.camera_offsetY = 0
+        self.enemy_camera_offsetX = 0
+        self.enemy_camera_offsetY = 0
 
         # Генерируем карту
         for i, row in enumerate(tilemap):
@@ -77,7 +80,7 @@ class CameraGroup(pygame.sprite.Sprite):
                 if column == "C":
                     InteractedObjs(j, i, self.chest_spritesheet, 30, 286, 78, 50)
                 if column == "P":
-                    self.player = Player(j, i, self.player_spritesheet, 41, 91)
+                    self.player = Player(j, i, self.player_spritesheet,[all_sprites, decorations_group, collisions_group],  41, 91,)
 
         # Смещаем камеру(или все спрайты в игре) в цент игрока
         for sprite in all_sprites:  # !!!!!!!!!! ТУТ СМЕЩЕНИЕ КАМЕРА РАБОТАЕТ ТОЛЬКО ВНУТРИ ДИСПЛЕЯ, ЕСТЬ ПРОБЛЕМА СО СПАВНОМ ЗА ЕГО ПРЕДЕЛАМИ(доработать!)
@@ -85,58 +88,63 @@ class CameraGroup(pygame.sprite.Sprite):
             sprite.rect.y -= WIN_HEIGHT + self.player.y - self.player.height if self.player.y > WIN_WIDTH / 2 else -(WIN_HEIGHT - self.player.y + self.player.height)
 
         # Запоминаем на какую величину мы сдвинули камеру для корректного спавна Врагов
-        self.camera_offsetX -= WIN_WIDTH - self.player.x + self.player.width
-        self.camera_offsetY -= WIN_HEIGHT - self.player.y + self.player.height
+        self.enemy_camera_offsetX -= WIN_WIDTH - self.player.x + self.player.width
+        self.enemy_camera_offsetY -= WIN_HEIGHT - self.player.y + self.player.height
     def spawn_enemies(self):
         hits = pygame.sprite.spritecollide(self.player, interaсtive_group, False)
         if hits and not self.enemy_is_spawned:
             for i, row in enumerate(objmap):
                 for j, column in enumerate(row):
                     if column == "E":
-                        Enemy(j, i, self.camera_offsetX + self.player.camX_change, self.camera_offsetY - self.player.camY_change, self.enemy_spritesheet, 42, 91)
+                        Enemy('zoombe', j, i, self.enemy_camera_offsetX + self.player.direction.x, self.enemy_camera_offsetY - self.player.direction.y, self.enemy_spritesheet, [all_sprites, enemy_group, decorations_group], 42, 91)
                     if i == len(objmap) - 1 and j == len(row) - 1:
                         self.enemy_is_spawned = True
-    def custom_draw(self):
+    def custom_draw(self, player):
         # Перерисовка декоративных объектов для разноплановости
         self.internal_surface.fill('#71ddee')
 
         for sprite in all_sprites:
-            self.internal_surface.blit(sprite.image, sprite.rect)
+            self.offset.x = player.rect.centerx - self.internal_offset.x - WIN_WIDTH / 2
+            self.offset.y = player.rect.centery - self.internal_offset.y - WIN_HEIGHT / 2
 
-        [2, 4, 5,12, 13]
+            floor_offset_pos = sprite.rect.topleft - self.offset
+            self.internal_surface.blit(sprite.image, floor_offset_pos)
+
         for sprite in sorted(decorations_group, key = lambda sprite: sprite.rect.centery):
-            self.internal_surface.blit(sprite.image, sprite.rect)
+            offset_pos = sprite.rect.topleft - self.offset
+            self.internal_surface.blit(sprite.image, offset_pos)
 
         scaled_surf = pygame.transform.scale(self.internal_surface, self.internal_surface_size_vector * self.zoom_scale)
         scaled_rect = scaled_surf.get_rect(center=(WIN_WIDTH / 2, WIN_HEIGHT / 2))
 
         all_sprites.update()
         self.display_surface.blit(scaled_surf, scaled_rect)
-class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, img, width, height):
+    def run(self):
+        self.custom_draw(self.player)
+        all_sprites.update()
+        self.enemy_update()
+    def enemy_update(self):
+        for enemy in enemy_group:
+            enemy.enemy_update(self.player)
+class Player(Entity):
+    def __init__(self, x, y, img, groups, width, height):
         self._layer = PLAYER_LAYER
-        super().__init__(all_sprites, decorations_group, collisions_group)
-
-        self.animation_loop = 0
-        self.attack_animation_loop = 0
-        self.facing = 'down'
+        super().__init__(groups)
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
         self.width = width
         self.height = height
 
-        self.camX_change = 0
-        self.camY_change = 0
-        self.x_change = 0
-        self.y_change = 0
-
-        self.alive_flag = True
         self.timers = {
             ''
         }
-
+        # Флаги
+        self.attacking = False
+        self.alive_flag = True
         self.is_equipped = False
+        self.facing = 'down'
+
         self.animations = {
             'down': [img.get_sprite(19, 21, self.width, self.height),
                      img.get_sprite(69, 21, self.width, self.height),
@@ -176,71 +184,80 @@ class Player(pygame.sprite.Sprite):
         }
         self.animation_index = 0
         self.directions = {
-            pygame.K_a: ('x_change', -PLAYER_SPEED, 'left', 'attack_left'),
-            pygame.K_d: ('x_change', PLAYER_SPEED, 'right', 'attack_right'),
-            pygame.K_w: ('y_change', -PLAYER_SPEED, 'up', 'attack_up'),
-            pygame.K_s: ('y_change', PLAYER_SPEED, 'down', 'attack_down'),
-            # pygame.K_SPACE: ('attack', 0, '', '')
+            pygame.K_a: ('self.direction.x', -PLAYER_SPEED, 'left', 'attack_left'),
+            pygame.K_d: ('self.direction.x', PLAYER_SPEED, 'right', 'attack_right'),
+            pygame.K_w: ('self.direction.y', -PLAYER_SPEED, 'up', 'attack_up'),
+            pygame.K_s: ('self.direction.y', PLAYER_SPEED, 'down', 'attack_down'),
         }
         self.attack_keys = [value[3] for key, value in self.directions.items()]
         self.directions_keys = [value[2] for key, value in self.directions.items()]
 
         self.image = self.animations['down'][0]
         self.rect = self.image.get_rect(topleft=(self.x, self.y))
-    def movement(self):
+    def input(self):
+        # if not self.attacking:
         keys = pygame.key.get_pressed()
 
-        for i, (key, (change_attr, speed, facing, attack_facing)) in enumerate(self.directions.items()):
-            if keys[key]:
-                setattr(self, change_attr, speed if not keys[PLAYER_KEYS['speed_boost']] else speed * PLAYER_SCORE_COEFF)
-                self.animation_index = i
-                self.facing = facing
-
+        # attaking input
         if keys[pygame.K_SPACE] and self.is_equipped:
+            self.attacking = True
+            self.attack_time = pygame.time.get_ticks()
             pygame.sprite.spritecollide(self, enemy_group, True)
-            self.facing = self.attack_keys[self.animation_index]
             for event in pygame.event.get():
                 if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
-                    self.facing = self.directions_keys[self.animation_index]
+                    self.attacking = False
 
-            for key, (change_attr, speed, facing, attack_facing) in self.directions.items():
-                if keys[key]:
-                    setattr(self, change_attr, speed if not keys[PLAYER_KEYS['speed_boost']] else speed * PLAYER_SCORE_COEFF)
-                    self.facing = 'attack_' + facing
+        # movement input
+        if keys[pygame.K_w]:
+            self.direction.y = -1
+            self.facing = 'up'
+        elif keys[pygame.K_s]:
+            self.direction.y = 1
+            self.facing = 'down'
+        else:
+            self.direction.y = 0
 
-        if keys[PLAYER_KEYS['up']] or keys[PLAYER_KEYS['down']]:
-            for sprite in all_sprites:
-                sprite.rect.y -= self.y_change if not keys[PLAYER_KEYS['speed_boost']] else self.y_change * PLAYER_SCORE_COEFF
-            self.camY_change -= self.y_change if not keys[PLAYER_KEYS['speed_boost']] else self.y_change * PLAYER_SCORE_COEFF
-        if keys[PLAYER_KEYS['left']] or keys[PLAYER_KEYS['right']]:
-            for sprite in all_sprites:
-                sprite.rect.x -= self.x_change if not keys[PLAYER_KEYS['speed_boost']] else self.x_change * PLAYER_SCORE_COEFF
-            self.camX_change -= self.x_change if not keys[PLAYER_KEYS['speed_boost']] else self.x_change * PLAYER_SCORE_COEFF
+        if keys[pygame.K_d]:
+            self.direction.x = 1
+            self.facing = 'right'
+        elif keys[pygame.K_a]:
+            self.direction.x = -1
+            self.facing = 'left'
+        else:
+            self.direction.x = 0
+    def get_status(self):
+        if self.attacking:
+            if not 'attack' in self.facing:
+                self.facing = 'attack_' + self.facing
+        else:
+            if 'attack' in self.facing:
+                self.facing = self.facing.replace('attack_', '')
     def animated(self):
         keys = pygame.key.get_pressed()
         direction = self.facing
         current_animation = self.animations[direction]
-        is_moving = self.x_change != 0 or self.y_change != 0
-        frame_index = 0
-        index = math.floor(self.animation_loop)
-        index2 = math.floor(self.attack_animation_loop)
+        is_moving = self.direction.x != 0 or self.direction.y != 0
 
-        if not is_moving:
-            if keys[PLAYER_KEYS['attack_key']] and self.is_equipped:
-                frame_index = index2
-                self.attack_animation_loop += 0.1
+        if self.attacking:
+            self.frame_index += self.attack_animation_speed
         else:
-            frame_index = index - 1
-            self.animation_loop += 0.1
+            if is_moving:
+                self.animation_speed = 0.15 if not keys[PLAYER_KEYS['speed_boost']] else 0.37
+                self.frame_index += self.animation_speed
 
-        if self.animation_loop >= len(current_animation) or self.attack_animation_loop >= len(current_animation):
-            self.animation_loop = 0
-            self.attack_animation_loop = 0
+        if self.frame_index >= len(current_animation):
+            self.frame_index = 0
 
-        self.image = pygame.transform.scale(current_animation[frame_index],
-                                            (current_animation[frame_index].get_width() * 1.4,
-                                             current_animation[frame_index].get_height() * 1.4))
+        self.image = pygame.transform.scale(current_animation[int(self.frame_index)],
+                                            (current_animation[int(self.frame_index)].get_width() * 1.4,
+                                             current_animation[int(self.frame_index)].get_height() * 1.4))
+    def cooldowns(self):
+        current_time = pygame.time.get_ticks()
 
+        if self.attacking:
+            if current_time - self.attack_time >= self.attack_cooldown + weapon_data[self.weapon]['cooldown']:
+                self.attacking = False
+                self.destroy_attack()
     def collide_enemy(self):
         # hits = pygame.sprite.spritecollide(self, enemy_group, False)
         #
@@ -248,28 +265,6 @@ class Player(pygame.sprite.Sprite):
         #     self.kill()
         #     playing = False
         pass
-    def collide_block(self, direction):
-        keys = pygame.key.get_pressed()
-        hits = pygame.sprite.spritecollide(self, walls_group, False)
-        multiplier = PLAYER_SCORE_COEFF**2 if keys[pygame.K_LSHIFT] else 1
-
-        if direction == "x":
-            if hits:
-                if self.x_change > 0:
-                    self.rect.x = hits[0].rect.left - self.rect.width
-                elif self.x_change < 0:
-                    self.rect.x = hits[0].rect.right
-                for sprite in all_sprites:
-                    sprite.rect.x += PLAYER_SPEED * multiplier if self.x_change > 0 else -PLAYER_SPEED * multiplier
-
-        elif direction == "y":
-            if hits:
-                if self.y_change > 0:
-                    self.rect.y = hits[0].rect.top - self.rect.height
-                elif self.y_change < 0:
-                    self.rect.y = hits[0].rect.bottom
-                for sprite in all_sprites:
-                    sprite.rect.y += PLAYER_SPEED * multiplier if self.y_change > 0 else -PLAYER_SPEED * multiplier
 
     def collide_usebleObj(self):
         hits = pygame.sprite.spritecollide(self, interaсtive_group, False)
@@ -278,54 +273,60 @@ class Player(pygame.sprite.Sprite):
         if hits and keys[PLAYER_KEYS['usage_key']]:
             self.is_equipped = True
 
-
     # Предназначен для обновления состояния игрока на каждом шаге игрового цикла
     def update(self):  # тут будет прописана логика обновления
         keys = pygame.key.get_pressed()
-        multiplier = 1.5 if keys[PLAYER_KEYS['speed_boost']] else 1
+        multiplier = PLAYER_SCORE_COEFF if keys[PLAYER_KEYS['speed_boost']] else 1
 
-        self.movement()
+        self.input()
+        self.get_status()
         self.animated()
+        self.movement(PLAYER_SPEED, multiplier)
         self.collide_usebleObj()
         self.collide_enemy()
-        self.rect.x += self.x_change * multiplier
-        self.collide_block('x')
-        self.rect.y += self.y_change * multiplier
-        self.collide_block('y')
 
-        self.x_change = 0
-        self.y_change = 0
-
-class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, i_x, i_y, img, width, height):
+class Enemy(Entity):
+    def __init__(self, monster_name, x, y, i_x, i_y, img, groups, width, height):
         self._layer = PLAYER_LAYER
-        super().__init__(all_sprites, enemy_group, decorations_group)
-        # Ширина 108 пикс
-        # Длинна 305 пикс
-        self.dialogue_scr = pygame.image.load('img/Menu/Dilogs/zombe_dialogue.png').convert()
-        self.img = img
+        self.sprite_type = 'enemy'
+        super().__init__(groups)
+
+        # Размер тайла
+        # self.dialogue_scr = pygame.image.load('img/Menu/Dilogs/zombe_dialogue.png').convert()
         self.x = x * TILESIZE + i_x
         self.y = y * TILESIZE - i_y
         self.width = width  # Ширина плиты
         self.height = height  # Длинна плиты
 
-        self.x_change = 0
-        self.y_change = 0
-
-        #self.health = 100
-        self.facing = random.choice(['left', 'right'])  # Сторона направления взгляда врага (по умолчанию: 'вниз')
-        self.attack_animation_loop = 0
-        self.animation_loop = 0
-        self.movement_loop = 0
-        self.max_traveling = random.randint(7, 30)
-
-        # self.image = self.game.enemy_spritesheet.get_sprite(0, 0, 42, 90)  # Изображение врага
+        # Графический Статус
+        self.img = img
         self.image = self.img.get_sprite(0, 0, 40, 91)
 
+        self.facing = random.choice(['left', 'right'])  # Сторона направления взгляда врага (по умолчанию: 'вниз')
+        self.random_key = random.choice(['l_key', 'r_key'])
+
+        self.animation_loop = 0
+        self.attack_animation_loop = 0
+        self.movement_loop = 0
+        self.max_traveling = random.randint(7, 30)
+        self.x_change = 0
+
+        # Хитбокс
         self.rect = self.image.get_rect()  # Хитбокс(габариты точки(x,y)) - (Размер спрайта врага = размеру прямоуг.)
         self.rect.x = self.x  # Положение хитбокса = положению  точки врага (по X и Y)
         self.rect.y = self.y
 
+        # stats
+        self.status = 'search'
+        self.monster_name = monster_name
+        monster_info = monster_data[self.monster_name]
+        self.health = monster_info['health']
+        self.attack_damage = monster_info['damage']
+        self.speed = monster_info['speed']
+        self.attack_radius = monster_info['attack_radius']
+        self.notice_radius = monster_info['notice_radius']
+
+        # Анимации
         self.animations = {
             'up': [img.get_sprite(1, 101, self.width, self.height),
                    img.get_sprite(50, 101, self.width, self.height),
@@ -370,63 +371,50 @@ class Enemy(pygame.sprite.Sprite):
         }
         self.attack_keys = [value[3] for key, value in self.directions.items()]
         self.directions_keys = [value[2] for key, value in self.directions.items()]
-    def update(self):
-        # self.get_dialogue()
-        self.movement()
-        self.animated()
-        self.rect.x += self.x_change
-        self.rect.y += self.y_change
+    def get_status(self, player):
+        distance = self.get_player_distance_direction(player)[0]
 
-        self.x_change = 0
-        self.y_change = 0
-
-        # Метод движения врага
-
-    def movement(self):
-        hits = pygame.sprite.spritecollide(self, collisions_group, False)
-        random_key = random.choice(['left', 'right'])
-        # for i, (key, (change_attr, speed, facing, attack_facing)) in enumerate(self.directions.items()):
-        #     if not hits:
-        #         if key == 'l_key' or key == 'r_key':
-        #             setattr(self, change_attr, speed)
-        #             self.movement_loop -= 1 if key == 'l_key' else 1
-        #             # self.x_change -= ENEMY_SPEED if key == 'l_key' else ENEMY_SPEED
-        #             if self.movement_loop < self.max_traveling or self.movement_loop > -self.max_traveling:
-        #                 self.movement_loop = 1 if key == 'l_key' else -1
-        #                 self.facing = 'left' if key == 'l_key' else 'right'
-        #                 # print(self.facing)
-        #     # else:
-
-        if not hits:
-            if self.facing == 'left':
-                self.x_change -= ENEMY_SPEED
-                self.movement_loop -= 1
-                if self.movement_loop <= -self.max_traveling:
-                    self.facing = 'right'
-            if self.facing == 'right':
-                self.x_change += ENEMY_SPEED
-                self.movement_loop += 1
-                if self.movement_loop >= self.max_traveling:
-                    self.facing = 'left'
+        if distance <= self.attack_radius:
+            if self.status != 'attack':
+                self.frame_index = 0
+            self.status = 'attack'
+        elif distance <= self.notice_radius:
+            self.status = 'move'
         else:
-            if self.facing == 'left':
-                self.facing = 'attack_left'
-                self.x_change -= ENEMY_SPEED
-                self.movement_loop -= 1
-                if self.movement_loop <= -self.max_traveling:
-                    self.facing = 'right'
-            if self.facing == 'right':
-                self.facing = 'attack_right'
-                self.x_change += ENEMY_SPEED
-                self.movement_loop += 1
-                if self.movement_loop >= self.max_traveling:
-                    self.facing = 'left'
+            self.status = 'search'
+    def enemy_update(self, player):
+        self.get_status(player)
+        self.actions(player)
+    def actions(self, player):
+        if self.status == 'attack':
+            self.direction = pygame.math.Vector2()
+        elif self.status == 'move':
+            self.direction = self.get_player_distance_direction(player)[1]
+        else:
+            self.direction.x -= 1 if self.facing == 'left' else -1
+            self.x_change += int(self.direction.x)
+            if abs(self.x_change) >= self.max_traveling:
+                self.x_change = 0
+                self.direction.y = 0
+                self.facing = 'left' if self.facing == 'right' else 'right'
+
+    def get_player_distance_direction(self, player):
+        enemy_vec = pygame.math.Vector2(self.rect.center)
+        player_vec = pygame.math.Vector2(player.rect.center)
+        distance = (player_vec - enemy_vec).magnitude()
+
+        if distance > 0:
+            direction = (player_vec - enemy_vec).normalize()
+        else:
+            direction = pygame.math.Vector2()
+
+        return (distance, direction)
     def get_dialogue(self):
         hits = pygame.sprite.spritecollide(player_group, interaсtive_group, False)
         keys = pygame.key.get_pressed()
         intro = True
         if hits and keys[PLAYER_KEYS['usage_key']]:
-            screen.blit(self.dialogue_scr, (0,0))
+            # screen.blit(self.dialogue_scr, (0,0))
 
             while intro:
                 for event in pygame.event.get():  # тут мы получаем каждое отдельное событие из pygame
@@ -435,16 +423,16 @@ class Enemy(pygame.sprite.Sprite):
             pygame.display.update()
     def animated(self):
         hits = pygame.sprite.spritecollide(self, collisions_group, False)
-        direction = self.facing
-        current_animation = self.animations[direction]
+        # direction = self.facing
+        current_animation = self.animations[self.facing]
         index = math.floor(self.animation_loop)
         index2 = math.floor(self.attack_animation_loop)
-        is_moving = self.x_change != 0 or self.y_change != 0
+        is_moving = self.direction.x != 0 or self.direction.y != 0
 
         if not is_moving:
             if not hits:
                 frame_index = 0
-                self.facing = 'left' if direction == 'attack_left' and not hits else 'right' if direction == 'attack_right' and not hits else self.facing
+                self.facing = 'left' if self.facing == 'attack_left' and not hits else 'right' if self.facing == 'attack_right' and not hits else self.facing
             else:
                 frame_index = index2
                 self.attack_animation_loop += 0.1
@@ -465,9 +453,14 @@ class Enemy(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(current_animation[frame_index],
                                             (current_animation[frame_index].get_width() * 1.4,
                                              current_animation[frame_index].get_height() * 1.4))
+    def update(self):
+        # self.get_dialogue()
+        self.movement(ENEMY_SPEED, 0.5)
+        self.animated()
 class Tree(pygame.sprite.Sprite):
     def __init__(self, x, y, img, img_x, img_y, width, height):
         self._layer = PLAYER_LAYER
+        self.sprite_type = 'tree'
         super().__init__(all_sprites, decorations_group)
 
         self.x = x * TILESIZE
@@ -481,6 +474,7 @@ class Tree(pygame.sprite.Sprite):
 
 class Walls(pygame.sprite.Sprite):
     def __init__(self, x, y, img, img_x, img_y, width, height):
+        self.sprite_type = 'wall'
         super().__init__(all_sprites, walls_group)
 
         self.x = x * TILESIZE
@@ -494,6 +488,7 @@ class Walls(pygame.sprite.Sprite):
 class Ground(pygame.sprite.Sprite):
     def __init__(self, x, y, img, img_x, img_y, width, height):
         self._layer = GROUND_LAYER
+        self.sprite_type = 'ground'
         super().__init__(all_sprites)
 
         self.x = x * TILESIZE
@@ -508,6 +503,7 @@ class Ground(pygame.sprite.Sprite):
 class InteractedObjs(pygame.sprite.Sprite):
     def __init__(self, x, y, img, img_x, img_y, width, height):
         self._layer = GROUND_LAYER
+        self.sprite_type = 'object'
         super().__init__(all_sprites, decorations_group, interaсtive_group)
 
         self.x = x * TILESIZE

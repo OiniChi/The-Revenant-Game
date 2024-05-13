@@ -9,6 +9,7 @@ import sys
 pygame.init()
 info = pygame.display.Info()
 screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN)
+pygame.display.set_caption('The Revenant')
 clock = pygame.time.Clock()
 cam_group = CameraGroup()
 # playing = True
@@ -70,9 +71,9 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 game_over()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_x:
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_x:
                 cam_group.spawn_enemies()
-            if event.type == pygame.MOUSEWHEEL:
+            elif event.type == pygame.MOUSEWHEEL:
                 # Изменения масштаба камеры на скорость : 0,17
                 cam_group.zoom_scale += CAMERA_ZOOM_SPEED if event.y > 0 else -CAMERA_ZOOM_SPEED
 
@@ -80,7 +81,6 @@ if __name__ == "__main__":
                 cam_group.zoom_scale = max(0.84, min(1.45, cam_group.zoom_scale))
 
         screen.fill('#71ddee')
-        cam_group.custom_draw()
-        all_sprites.update()
+        cam_group.run()
         pygame.display.update()
         clock.tick(60)
