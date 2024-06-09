@@ -1,5 +1,5 @@
 import pygame
-# from settings import *
+from settings import *
 # directions = {
 #     'pygame.K_a': ('x_change', -PLAYER_SPEED, 'left', 'attack_left'),
 #     'pygame.K_d': ('x_change', PLAYER_SPEED, 'right', 'attack_right'),
@@ -17,8 +17,9 @@ import pygame
 #     print(listic)
 #
 # movement(directions)
-direction = pygame.math.Vector2()
-for i in range(0, 5):
-    direction.x -= 1
-print(direction.x)
-
+# direction = pygame.math.Vector2()
+# for i in range(0, 5):
+#     direction.x -= 1
+# print(direction.x)
+weapon = list(weapon_data.keys())[0]
+print(player_data['people']['health'])

@@ -1,7 +1,6 @@
-import pygame
 from config import *
 from settings import *
-from sprites import CameraGroup, Button, Ground, Spritesheet
+from sprites import CameraGroup, Button
 from groups import all_sprites, decorations_group, enemy_group
 import sys
 
@@ -12,9 +11,7 @@ screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT), pygame.FULLSCREEN)
 pygame.display.set_caption('The Revenant')
 clock = pygame.time.Clock()
 cam_group = CameraGroup()
-# playing = True
-# terrarian_spritesheet = Spritesheet('img/Level_textures/all_sprites.png')
-main_menu_spritesheet = pygame.image.load('img/Menu/MainScr.jpg').convert()
+main_menu_spritesheet = pygame.image.load("img/Menu/MainScr.jpg").convert()
 
 def intro_screen():
     intro = True
@@ -41,6 +38,7 @@ def game_over():
     intro = True
     global spawn_flag
     screen.blit(main_menu_spritesheet, (0, 0))
+    cam_group.gamePaused_info()
     play_button = Button(765, 517, 360, 112)
     exit_button = Button(883, 709, 225, 63)
 
@@ -61,8 +59,8 @@ def game_over():
                 intro = False  # Выходим из цикла
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 intro = False
-        pygame.display.update()
 
+        pygame.display.update()
 
 if __name__ == "__main__":
     intro_screen()
@@ -82,5 +80,7 @@ if __name__ == "__main__":
 
         screen.fill('#71ddee')
         cam_group.run()
+        if cam_group.player.is_dead or len(enemy_group) == 0 and cam_group.player.is_equipped:
+            game_over()
         pygame.display.update()
         clock.tick(60)

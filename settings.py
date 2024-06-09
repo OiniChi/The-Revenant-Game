@@ -21,14 +21,25 @@ GROUND_LAYER = 1  # Приоритет отображения слоя пола
 # Player Data
 PLAYER_SPEED = 7
 PLAYER_SCORE_COEFF = 2
+
+# ui
+HEALTH_BAR_WIDTH = 200
+BAR_HEIGHT = 20
+UI_BG_COLOR = '#222222'
+UI_BORDER_COLOR = '#111111'
+
 player_data = {
-    'people': {'health': 100, 'damage': 20, 'attack_sound': '', 'speed': 11, 'attack_radius': 80, 'notice_radius': 360}
+    'people': {'health': 5000, 'attack_sound': '', 'speed': 11, 'attack_radius': 80, 'notice_radius': 360}
 }
 
 # Enemy Data
-ENEMY_SPEED = 7
 monster_data = {
-    'zoombe': {'health': 100, 'damage': 20, 'attack_sound': '', 'speed': 4, 'attack_radius': 80, 'notice_radius': 360}
+    'zoombe': {'health': 500, 'damage': 20, 'attack_sound': '', 'speed': 7, 'attack_radius': 80, 'notice_radius': 660}
+}
+
+# weapons
+weapon_data = {
+	'sword': {'cooldown': 200, 'damage': 25, 'attack_radius': 90},
 }
 
 
