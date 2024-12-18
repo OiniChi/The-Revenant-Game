@@ -19,7 +19,7 @@ WALL_LAYER = 4  # Приоритет отображения слоя стены
 GROUND_LAYER = 1  # Приоритет отображения слоя пола
 
 # Player Data
-PLAYER_SPEED = 7
+PLAYER_SPEED = 10
 PLAYER_SCORE_COEFF = 2
 
 # ui
@@ -34,7 +34,7 @@ player_data = {
 
 # Enemy Data
 monster_data = {
-    'zoombe': {'health': 500, 'damage': 20, 'attack_sound': '', 'speed': 7, 'attack_radius': 80, 'notice_radius': 660}
+    'zoombe': {'health': 500, 'damage': 20, 'attack_sound': '', 'speed': 11, 'attack_radius': 80, 'notice_radius': 660}
 }
 
 # weapons

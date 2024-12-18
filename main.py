@@ -38,7 +38,7 @@ def game_over():
     intro = True
     global spawn_flag
     screen.blit(main_menu_spritesheet, (0, 0))
-    cam_group.gamePaused_info()
+    cam_group.endGame_info()
     play_button = Button(765, 517, 360, 112)
     exit_button = Button(883, 709, 225, 63)
 

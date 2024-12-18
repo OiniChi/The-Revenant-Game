@@ -1,12 +1,12 @@
 import time
 import pygame
+import random
+import os 
 from config import *
 from settings import *
 from levels import *
 from ui import UI
 from Entity import Entity
-import math
-import random
 from groups import (all_sprites, decorations_group,
                     walls_group, collisions_group, enemy_group,
                     interaсtive_group, player_group)
@@ -39,7 +39,7 @@ class CameraGroup(pygame.sprite.Sprite):
         #zoom
         self.zoom_scale = 1
         self.internal_surface_size = (2500, 2500)
-        self.internal_surface = pygame.Surface(self.internal_surface_size, pygame.SRCALPHA)
+        self.internal_surface = pygame.Surface(self.internal_surface_size, pygame.SRCALPHA) #  Внутренняя поверхность
         self.internal_rect = self.internal_surface.get_rect(center=(WIN_WIDTH / 2, WIN_HEIGHT / 2))
         self.internal_surface_size_vector = pygame.math.Vector2(self.internal_surface_size)
         self.internal_offset = pygame.math.Vector2()
@@ -88,6 +88,7 @@ class CameraGroup(pygame.sprite.Sprite):
         for sprite in all_sprites:  # !!!!!!!!!! ТУТ СМЕЩЕНИЕ КАМЕРА РАБОТАЕТ ТОЛЬКО ВНУТРИ ДИСПЛЕЯ, ЕСТЬ ПРОБЛЕМА СО СПАВНОМ ЗА ЕГО ПРЕДЕЛАМИ(доработать!)
             sprite.rect.x -= WIN_WIDTH - self.player.x + self.player.width if self.player.x > WIN_WIDTH / 2 else -(WIN_WIDTH + self.player.x - self.player.width)
             sprite.rect.y -= WIN_HEIGHT + self.player.y - self.player.height if self.player.y > WIN_WIDTH / 2 else -(WIN_HEIGHT - self.player.y + self.player.height)
+            # self.internal_surface.blit(sprite.image,(sprite.x, sprite.y))
 
         # Запоминаем на какую величину мы сдвинули камеру для корректного спавна Врагов
         self.enemy_camera_offsetX -= WIN_WIDTH - self.player.x + self.player.width
@@ -97,7 +98,7 @@ class CameraGroup(pygame.sprite.Sprite):
         if hits and not self.enemy_is_spawned:
             for i, row in enumerate(objmap):
                 for j, column in enumerate(row):
-                    if column == "e":
+                    if column == "E":
                         Enemy('zoombe', j, i, self.enemy_camera_offsetX + self.player.direction.x, self.enemy_camera_offsetY - self.player.direction.y, self.enemy_spritesheet, [all_sprites, enemy_group, decorations_group], 64, 128)
                     if i == len(objmap) - 1 and j == len(row) - 1:
                         self.enemy_is_spawned = True
@@ -105,10 +106,10 @@ class CameraGroup(pygame.sprite.Sprite):
         # Перерисовка декоративных объектов для разноплановости
         self.internal_surface.fill('#71ddee')
 
-        for sprite in all_sprites:
-            self.offset.x = player.rect.centerx - self.internal_offset.x - WIN_WIDTH / 2
-            self.offset.y = player.rect.centery - self.internal_offset.y - WIN_HEIGHT / 2
+        self.offset.x = player.rect.centerx - self.internal_offset.x - WIN_WIDTH / 2
+        self.offset.y = player.rect.centery - self.internal_offset.y - WIN_HEIGHT / 2
 
+        for sprite in all_sprites:
             floor_offset_pos = sprite.rect.topleft - self.offset
             self.internal_surface.blit(sprite.image, floor_offset_pos)
 
@@ -119,7 +120,7 @@ class CameraGroup(pygame.sprite.Sprite):
         scaled_surf = pygame.transform.scale(self.internal_surface, self.internal_surface_size_vector * self.zoom_scale)
         scaled_rect = scaled_surf.get_rect(center=(WIN_WIDTH / 2, WIN_HEIGHT / 2))
 
-        all_sprites.update()
+        # all_sprites.update()
         self.display_surface.blit(scaled_surf, scaled_rect)
     def run(self):
         self.custom_draw(self.player)
@@ -127,7 +128,7 @@ class CameraGroup(pygame.sprite.Sprite):
         all_sprites.update()
         self.player_update()
         self.enemy_update()
-    def gamePaused_info(self):
+    def endGame_info(self):
         return self.ui.game_info()
     def player_update(self):
         for enemy in enemy_group:
@@ -256,7 +257,7 @@ class Player(Entity):
             # print(self.frame_index)
         else:
             if is_moving:
-                self.animation_speed = 0.15 if not keys[PLAYER_KEYS['speed_boost']] else 0.37
+                self.animation_speed = 0.17 if not keys[PLAYER_KEYS['speed_boost']] else 0.37
                 self.frame_index += self.animation_speed
             else:
                 self.frame_index = 0
@@ -458,14 +459,9 @@ class Enemy(Entity):
 
     def get_damage(self, player):
         distance = self.get_player_distance_direction(player)[0]
-        current_time = pygame.time.get_ticks()
-        # print(player.attacking)
         if distance <= player.attack_radius and player.attacking:
             self.health -= weapon_data[player.weapon]['damage']
-            print(self.health)
             self.hit_time = pygame.time.get_ticks()
-        # else:
-
     def check_death(self):
         if self.health <= 0:
             self.kill()
@@ -550,7 +546,8 @@ class InteractedObjs(pygame.sprite.Sprite):
         self.is_looted = False
 
         # Message
-        self.font = pygame.font.Font(r'E:\The Revenant\fonts\arial.ttf')
+        data_path = os.path.join(os.path.dirname(__file__), "fonts")
+        self.font = pygame.font.Font(os.path.join(data_path, "arial.ttf"))
         self.msg_for_usage = self.font.render(f'Press: {PLAYER_KEYS["usage_key"]}', True, WHITE)
         self.msg_rect = self.msg_for_usage.get_rect()
         self.msg_rect.x = self.x
@@ -582,10 +579,11 @@ class InteractedObjs(pygame.sprite.Sprite):
             self.index = 2
             self.rect.y += 22
             self.direction = 'down'
-        if hits and self.direction != 'up':
+        elif hits and self.direction != 'up':
             self.index = 1 if not self.is_looted else 2
             self.rect.y -= 22
             self.direction = 'up'
+
         if keys[PLAYER_KEYS['usage_key']] and self.direction == 'up' and self.is_looted is False:
             self.index = 2
             self.is_looted = True
